@@ -34,8 +34,6 @@ defmodule MyApp.Consumer do
     end
   end
 
-  # Callbacks
-
   def handle_info({:DOWN, _, :process, _pid, _reason}, _) do
     {:ok, chan} = rabbitmq_connect()
     {:noreply, chan}
@@ -60,7 +58,7 @@ defmodule MyApp.Consumer do
   end
 
   def handle_info({:basic_deliver, payload, %{delivery_tag: tag, redelivered: redelivered}}, chan) do
-    spawn fn -> consume(chan, tag, redelivered, payload) end
+    spawn_link fn -> consume(chan, tag, redelivered, payload) end
     {:noreply, chan}
   end
 
@@ -72,23 +70,20 @@ defmodule MyApp.Consumer do
   defp consume(channel, tag, redelivered, payload) do
     IO.inspect payload, label: "got a message!"
 
-    :timer.sleep(5000)
+    {:ok, body} = Poison.decode(payload)
+    email = body["attributes"]
+
+    MyApp.Email.send_email(email)
+      |> MyApp.Mailer.deliver_now
+      |> IO.inspect(label: "deliverede!")
 
     IO.inspect payload, label: "processed a message!"
 
     Basic.ack channel, tag
   rescue
-    # Requeue unless it's a redelivered message.
-    # This means we will retry consuming a message once in case of exception
-    # before we give up and have it moved to the error queue
-    #
-    # You might also want to catch :exit signal in production code.
-    # Make sure you call ack, nack or reject otherwise comsumer will stop
-    # receiving messages.
     exception ->
       IO.puts "an error pusing request!"
       IO.inspect(exception, [label: "RequestConsumer exception"])
       Basic.reject channel, tag, requeue: not redelivered
-      IO.puts "WebApi.WebsocketClient ERROR converting #{payload}"
   end
 end

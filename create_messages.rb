@@ -10,13 +10,17 @@ channel.confirm_select
 exchange = channel.topic('email_processing', durable: true)
 routing_key = 'email.low'
 
-msg = {
-  'subject' => 'Welcome!!!',
+mail =  {
+  'subject' => "#{Time.now}",
   'from' => 'me@example.com',
   'to' => 'foo@example.com',
   'cc' => '',
   'bcc' => '',
   'html' => "<h1>#{Time.now}</h1>"
+}
+
+msg = {
+  'attributes' => mail
 }.to_json
 
 exchange.publish(msg, routing_key: routing_key)

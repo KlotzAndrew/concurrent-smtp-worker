@@ -20,6 +20,16 @@ defmodule MyApp.Email do
     |> html_body("<strong>Welcome</strong>")
     |> text_body("welcome")
   end
-end
 
-# MyApp.Email.welcome_email |> MyApp.Mailer.deliver_now
+  def send_email(email) do
+    new_email(
+      to: email["to"],
+      from: email["from"],
+      cc: email["cc"],
+      bcc: email["bcc"],
+      subject: email["subject"],
+      html_body: email["html"],
+      text_body: email["text"]
+    )
+  end
+end
