@@ -20,4 +20,14 @@ config :logger, :console,
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
+config :smtp_test, MyApp.Mailer,
+  adapter: Bamboo.SMTPAdapter,
+  server: '127.0.0.1', #System.get_env("SMTP_HOSTNAME"),
+  port: 1025, #System.get_env("SMTP_PORT"),
+  username: '', #System.get_env("SMTP_USERNAME"),
+  password: '', #System.get_env("SMTP_PASSWORD"),
+  tls: :if_available, # can be `:always` or `:never`
+  ssl: false, # can be `true`
+  retries: 1
+
 import_config "#{Mix.env}.exs"
