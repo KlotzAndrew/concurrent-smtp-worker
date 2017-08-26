@@ -19,7 +19,7 @@ defmodule SmtpTest.Mixfile do
   def application do
     [
       mod: {SmtpTest.Application, []},
-      extra_applications: [:logger, :runtime_tools, :bamboo, :bamboo_smtp]
+      extra_applications: [:logger, :runtime_tools, :bamboo, :bamboo_smtp, :amqp]
     ]
   end
 
@@ -39,7 +39,8 @@ defmodule SmtpTest.Mixfile do
       {:gettext, "~> 0.11"},
       {:cowboy, "~> 1.0"},
       {:bamboo, "~> 0.7"},
-      {:bamboo_smtp, "~> 1.2.1"}
+      {:bamboo_smtp, "~> 1.2.1"},
+      {:amqp, "~> 0.2.3"},
     ]
   end
 end

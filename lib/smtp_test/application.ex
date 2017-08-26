@@ -12,6 +12,7 @@ defmodule SmtpTest.Application do
       supervisor(SmtpTestWeb.Endpoint, []),
       # Start your own worker by calling: SmtpTest.Worker.start_link(arg1, arg2, arg3)
       # worker(SmtpTest.Worker, [arg1, arg2, arg3]),
+      worker(MyApp.Consumer, [])
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
