@@ -15,9 +15,11 @@ defmodule MyApp.Consumer do
   end
 
   defp rabbitmq_connect do
+    IO.puts "connecting..."
+    :timer.sleep(5_000)
     case Connection.open("amqp://guest:guest@localhost") do
       {:ok, conn} ->
-        Process.monitor(conn.pid)
+        Process.link(conn.pid)
         {:ok, chan} = Channel.open(conn)
         Basic.qos(chan, prefetch_count: 10)
         Queue.declare(chan, @queue_error, durable: true)
@@ -29,12 +31,12 @@ defmodule MyApp.Consumer do
         {:ok, _consumer_tag} = Basic.consume(chan, @queue)
         {:ok, chan}
       {:error, _} ->
-        :timer.sleep(10_000)
         rabbitmq_connect()
     end
   end
 
-  def handle_info({:DOWN, _, :process, _pid, _reason}, _) do
+  def handle_info({:DOWN, _, :process, _pid, reason}, _) do
+    IO.inspect(reason, label: "received :DOWN")
     {:ok, chan} = rabbitmq_connect()
     {:noreply, chan}
   end
@@ -75,7 +77,6 @@ defmodule MyApp.Consumer do
 
     MyApp.Email.send_email(email)
       |> MyApp.Mailer.deliver_now
-      |> IO.inspect(label: "deliverede!")
 
     IO.inspect payload, label: "processed a message!"
 
