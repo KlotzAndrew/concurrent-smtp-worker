@@ -1,7 +1,7 @@
 require 'bunny'
 require 'json'
 
-connection = Bunny.new(host: 'localhost')
+connection = Bunny.new('amqp://guest:guest@10.0.2.2:5672')
 connection.start
 
 channel = connection.create_channel
@@ -21,10 +21,12 @@ routing_key = 'email.low'
   }
 
   msg = {
-    'attributes' => mail
+    'attributes' => mail,
+    'email_recipient_id' => 1,
+    'org_id' => 'd0283e01-b15a-40fc-a426-7aa729ed7697'
   }.to_json
 
-  exchange.publish(msg, routing_key: routing_key)
+  exchange.publish(msg, routing_key: routing_key, persistent: true)
   if exchange.wait_for_confirms
     puts " [x] Sent #{routing_key}:#{msg}"
   else

@@ -4,7 +4,9 @@ defmodule MyApp.Consumer do
 
   @exchange "email_processing"
   @queue "email_delivery"
-  @queue_error "#{@queue}_error"
+
+  @status_exchange "email_status"
+  @status_queue "email_status"
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, :ok, opts)
@@ -17,16 +19,25 @@ defmodule MyApp.Consumer do
   defp rabbitmq_connect do
     IO.puts "connecting..."
     :timer.sleep(5_000)
-    case Connection.open("amqp://guest:guest@localhost") do
+    case Connection.open("amqp://guest:guest@10.0.2.2:5672") do
       {:ok, conn} ->
         Process.link(conn.pid)
         {:ok, chan} = Channel.open(conn)
-        Basic.qos(chan, prefetch_count: 10)
-        Queue.declare(chan, @queue_error, durable: true)
-        Queue.declare(chan, @queue, durable: true)
+        Confirm.select(chan)
+        Basic.qos(chan, prefetch_count: 1000)
 
+        # status queue
+        Queue.declare(chan, @status_queue, durable: true)
+        Exchange.declare(chan, @status_exchange, :topic, durable: true)
+        Queue.bind(chan, @status_queue, @status_exchange, routing_key: "#")
+
+        # consumer queue
+        Queue.declare(chan, @queue, durable: true,
+                                    arguments: [{"x-dead-letter-exchange", :longstr, @status_exchange},
+                                                {"x-dead-letter-routing-key", :longstr, @status_queue}])
         Exchange.declare(chan, @exchange, :topic, durable: true)
-        Queue.bind(chan, @queue, @exchange, routng_key: '#')
+        Queue.bind(chan, @queue, @exchange, routing_key: "#")
+
 
         {:ok, _consumer_tag} = Basic.consume(chan, @queue)
         {:ok, chan}
@@ -70,21 +81,25 @@ defmodule MyApp.Consumer do
   end
 
   defp consume(channel, tag, redelivered, payload) do
-    IO.inspect payload, label: "got a message!"
-
-    {:ok, body} = Poison.decode(payload)
-    email = body["attributes"]
+    response = Poison.decode!(payload)
+    email = response["attributes"]
 
     MyApp.Email.send_email(email)
       |> MyApp.Mailer.deliver_now
 
-    IO.inspect payload, label: "processed a message!"
-
-    Basic.ack channel, tag
+    produce_status_success(channel, response)
+    Basic.ack(channel, tag)
   rescue
     exception ->
       IO.puts "an error pusing request!"
       IO.inspect(exception, [label: "RequestConsumer exception"])
-      Basic.reject channel, tag, requeue: not redelivered
+      Basic.reject(channel, tag, requeue: not redelivered)
+  end
+
+  defp produce_status_success(channel, response) do
+    message = Map.merge(response, %{"status" => "success"})
+    payload = Poison.encode!(message)
+    Basic.publish(channel, @status_exchange, "", payload, persistent: true)
+    Confirm.wait_for_confirms_or_die(channel)
   end
 end
